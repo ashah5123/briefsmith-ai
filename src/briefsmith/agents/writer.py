@@ -61,7 +61,19 @@ def writer_agent(state: WorkflowState, llm: LLMClient) -> WorkflowState:
     prompt += "\n- content_ideas: exactly 8"
     prompt += "\n- objections_and_responses: exactly 3 objects"
     prompt += "\n  (each object: { \"objection\": \"...\", \"response\": \"...\" })"
-    
+
+    prompt += "\n\nCITATION REQUIREMENTS (MANDATORY):"
+    prompt += "\n- Include at least 8 total citations across the brief."
+    prompt += "\n- Include at least 1 citation in each major section:"
+    prompt += "\n  - positioning_statement"
+    prompt += "\n  - key_messages (at least 2 cited)"
+    prompt += "\n  - launch_plan (at least 2 cited)"
+    prompt += "\n  - content_ideas (at least 2 cited)"
+    prompt += "\n- Use format: (Source #n)"
+    prompt += "\n- Do not fabricate source numbers beyond the provided list."
+    prompt += "\n- Only reference source numbers that exist in the numbered sources list."
+    prompt += "\n- If insufficient citations are used, the output will be rejected."
+
     prompt += "\n\nOUTPUT FORMAT (STRICT):"
     prompt += "\n- Return ONLY valid JSON."
     prompt += "\n- Return an INSTANCE, not a schema."
