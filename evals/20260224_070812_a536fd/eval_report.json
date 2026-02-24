@@ -1,0 +1,38 @@
+{
+  "summary": {
+    "eval_id": "20260224_070812_a536fd",
+    "created_at": "2026-02-24T07:08:12.244122+00:00",
+    "runs_requested": 1,
+    "runs_completed": 1,
+    "approval_rate": 1.0,
+    "avg_revision_count": 0.0,
+    "citation_stats": {
+      "min": 3,
+      "avg": 3.0,
+      "max": 3
+    },
+    "failures_count": 0,
+    "common_issues": [],
+    "notes": null
+  },
+  "results": [
+    {
+      "run_id": "20260224_070633_5557a5",
+      "approval_status": "approved",
+      "revision_count": 0,
+      "citations": 3,
+      "brief_counts": {
+        "key_messages": 5,
+        "launch_plan": 7,
+        "seo_keywords": 11,
+        "content_ideas": 8,
+        "objections_and_responses": 3
+      },
+      "hard_issues_count": 0,
+      "soft_issues_count": 0,
+      "issues": [],
+      "duration_ms": 98588,
+      "error": null
+    }
+  ]
+}

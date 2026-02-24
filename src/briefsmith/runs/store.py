@@ -108,3 +108,10 @@ class RunStore:
         runs.sort(key=lambda m: m.created_at, reverse=True)
         return runs[:limit]
 
+    def load_json(self, run_id: str, filename: str) -> Any:
+        """Load and parse a JSON artifact for a run."""
+        path = self.path_for(run_id, filename)
+        if not path.is_file():
+            raise FileNotFoundError(f"{filename} not found for run_id={run_id}")
+        return json.loads(path.read_text(encoding="utf-8"))
+

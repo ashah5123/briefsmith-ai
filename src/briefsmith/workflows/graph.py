@@ -111,3 +111,59 @@ def build_graph(
     )
 
     return builder.compile()
+
+
+def build_graph_no_research(llm: LLMClient) -> Any:
+    """Build graph starting at synthesizer (assumes sources already populated)."""
+    builder = StateGraph(dict)
+
+    def synthesize_node(state: dict) -> dict:
+        ws = WorkflowState.model_validate(state)
+        t0 = perf_counter()
+        out = synthesizer_agent(ws, llm)
+        elapsed_ms = int((perf_counter() - t0) * 1000)
+        meta = dict(out.metadata)
+        durations = dict(meta.get("durations_ms", {}))
+        durations["synthesizer"] = durations.get("synthesizer", 0) + elapsed_ms
+        meta["durations_ms"] = durations
+        out = out.model_copy(update={"metadata": meta})
+        return out.model_dump(mode="json")
+
+    def writer_node(state: dict) -> dict:
+        ws = WorkflowState.model_validate(state)
+        t0 = perf_counter()
+        out = writer_agent(ws, llm)
+        elapsed_ms = int((perf_counter() - t0) * 1000)
+        meta = dict(out.metadata)
+        durations = dict(meta.get("durations_ms", {}))
+        durations["writer"] = durations.get("writer", 0) + elapsed_ms
+        meta["durations_ms"] = durations
+        out = out.model_copy(update={"metadata": meta})
+        return out.model_dump(mode="json")
+
+    def critic_node(state: dict) -> dict:
+        ws = WorkflowState.model_validate(state)
+        t0 = perf_counter()
+        out = critic_agent(ws, llm)
+        elapsed_ms = int((perf_counter() - t0) * 1000)
+        meta = dict(out.metadata)
+        durations = dict(meta.get("durations_ms", {}))
+        durations["critic"] = durations.get("critic", 0) + elapsed_ms
+        meta["durations_ms"] = durations
+        out = out.model_copy(update={"metadata": meta})
+        return out.model_dump(mode="json")
+
+    builder.add_node("synthesizer", synthesize_node)
+    builder.add_node("writer", writer_node)
+    builder.add_node("critic", critic_node)
+
+    builder.add_edge(START, "synthesizer")
+    builder.add_edge("synthesizer", "writer")
+    builder.add_edge("writer", "critic")
+    builder.add_conditional_edges(
+        "critic",
+        _route_after_critic,
+        {"writer": "writer", "__end__": END},
+    )
+
+    return builder.compile()

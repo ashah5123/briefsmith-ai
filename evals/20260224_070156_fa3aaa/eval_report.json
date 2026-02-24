@@ -1,0 +1,56 @@
+{
+  "summary": {
+    "eval_id": "20260224_070156_fa3aaa",
+    "created_at": "2026-02-24T07:01:56.102173+00:00",
+    "runs_requested": 3,
+    "runs_completed": 0,
+    "approval_rate": 0.0,
+    "avg_revision_count": 0.0,
+    "citation_stats": {
+      "min": 0,
+      "avg": 0.0,
+      "max": 0
+    },
+    "failures_count": 3,
+    "common_issues": [],
+    "notes": "offline mode enabled"
+  },
+  "results": [
+    {
+      "run_id": "20260224_070138_807b87",
+      "approval_status": null,
+      "revision_count": null,
+      "citations": null,
+      "brief_counts": null,
+      "hard_issues_count": null,
+      "soft_issues_count": null,
+      "issues": null,
+      "duration_ms": 7075,
+      "error": "Offline mode cache miss for query 'My Product Gather project background information'. Run once without --offline to populate the search cache."
+    },
+    {
+      "run_id": "20260224_070145_24863b",
+      "approval_status": null,
+      "revision_count": null,
+      "citations": null,
+      "brief_counts": null,
+      "hard_issues_count": null,
+      "soft_issues_count": null,
+      "issues": null,
+      "duration_ms": 4306,
+      "error": "Offline mode cache miss for query \"My Product Conduct competitor research on My Product's market space\". Run once without --offline to populate the search cache."
+    },
+    {
+      "run_id": "20260224_070149_98a1b5",
+      "approval_status": null,
+      "revision_count": null,
+      "citations": null,
+      "brief_counts": null,
+      "hard_issues_count": null,
+      "soft_issues_count": null,
+      "issues": null,
+      "duration_ms": 6695,
+      "error": "Offline mode cache miss for query 'My Product Define marketing objectives and key performance indicators (KPIs) for the product'. Run once without --offline to populate the search cache."
+    }
+  ]
+}

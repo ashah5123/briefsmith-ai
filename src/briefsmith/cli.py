@@ -8,6 +8,7 @@ import typer
 from pydantic import BaseModel
 
 from briefsmith.llm import OllamaClient, generate_structured, generate_text
+from briefsmith.eval import EvalRunner, build_eval_summary, write_eval_report
 from briefsmith.schemas import (
     BriefInput,
     BriefOutput,
@@ -325,6 +326,132 @@ def runs(
             f"{meta.run_id}  {created}  status={meta.approval_status} "
             f"revisions={meta.revision_count}"
         )
+
+
+@app.command()
+def eval(
+    input_path: Path = typer.Option(
+        DEFAULT_INPUT_PATH,
+        "--input",
+        "-i",
+        help="Path to BriefInput JSON file.",
+        path_type=Path,
+    ),
+    runs: int = typer.Option(
+        5,
+        "--runs",
+        "-r",
+        help="Number of repeated workflow runs to execute.",
+        min=1,
+    ),
+    offline: bool = typer.Option(
+        False,
+        "--offline",
+        help="Cache-only research. Fails fast on cache miss.",
+    ),
+    use_existing_sources: Path | None = typer.Option(
+        None,
+        "--use-existing-sources",
+        help="Path to JSON file with precomputed SourceItem list (deterministic eval).",
+        path_type=Path,
+    ),
+    runs_dir: Path = typer.Option(
+        Path("runs"),
+        "--runs-dir",
+        help="Base directory for run artifacts.",
+        path_type=Path,
+    ),
+    evals_dir: Path = typer.Option(
+        Path("evals"),
+        "--evals-dir",
+        help="Base directory for evaluation reports.",
+        path_type=Path,
+    ),
+) -> None:
+    """Run an evaluation harness over multiple workflow executions."""
+    if not input_path.exists():
+        typer.echo(f"Input file not found: {input_path}", err=True)
+        raise typer.Exit(1)
+
+    try:
+        data = json.loads(input_path.read_text(encoding="utf-8"))
+        brief_input = BriefInput.model_validate(data)
+    except Exception as e:
+        typer.echo(f"Invalid input JSON: {e}", err=True)
+        raise typer.Exit(1) from e
+
+    llm = OllamaClient()
+    cache = SearchCache()
+    search = DuckDuckGoSearchClient(cache=cache)
+    store = RunStore(base_dir=runs_dir)
+
+    sources_override = None
+    if use_existing_sources is not None:
+        try:
+            raw = json.loads(use_existing_sources.read_text(encoding="utf-8"))
+            if not isinstance(raw, list):
+                raise ValueError("Expected a JSON list of SourceItem objects.")
+            sources_override = [SourceItem.model_validate(item) for item in raw]
+        except Exception as e:
+            typer.echo(f"Failed to load sources from {use_existing_sources}: {e}", err=True)
+            raise typer.Exit(1) from e
+        # Deterministic mode ignores offline flag.
+        offline = False
+
+    runner = EvalRunner(
+        llm=llm,
+        search=search,
+        run_store=store,
+        sources_override=sources_override,
+    )
+    typer.echo(
+        f"Running eval: runs={runs}, offline={offline}, "
+        f"sources_override={'yes' if sources_override else 'no'} ..."
+    )
+
+    results = runner.run_many(brief_input, runs=runs, offline=offline)
+    notes = "offline mode enabled" if offline else None
+    summary = build_eval_summary(results, notes=notes)
+    eval_id = str(summary.get("eval_id"))
+    eval_dir = evals_dir / eval_id
+    write_eval_report(eval_dir, summary=summary, results=results)
+
+    typer.echo("")
+    typer.echo("Eval summary")
+    typer.echo(f"  eval_id:         {eval_id}")
+    typer.echo(f"  runs_requested:  {summary.get('runs_requested')}")
+    typer.echo(f"  runs_completed:  {summary.get('runs_completed')}")
+    typer.echo(f"  failures:        {summary.get('failures_count')}")
+    typer.echo(f"  approval_rate:   {summary.get('approval_rate'):.2f}")
+    typer.echo(f"  avg_revisions:   {summary.get('avg_revision_count'):.2f}")
+    cs = summary.get("citation_stats") or {}
+    typer.echo(
+        "  citations(min/avg/max): "
+        f"{cs.get('min')}/{cs.get('avg'):.2f}/{cs.get('max')}"
+    )
+    typer.echo(f"  report_dir:      {eval_dir.absolute()}")
+
+
+@app.command()
+def eval_view(
+    eval_id: str = typer.Option(
+        ...,
+        "--eval-id",
+        help="Evaluation ID (directory under evals/).",
+    ),
+    evals_dir: Path = typer.Option(
+        Path("evals"),
+        "--evals-dir",
+        help="Base directory for evaluation reports.",
+        path_type=Path,
+    ),
+) -> None:
+    """Print an evaluation report markdown to the console."""
+    path = evals_dir / eval_id / "eval_report.md"
+    if not path.exists():
+        typer.echo(f"Eval report not found: {path}", err=True)
+        raise typer.Exit(1)
+    typer.echo(path.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

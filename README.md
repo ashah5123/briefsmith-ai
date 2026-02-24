@@ -278,6 +278,32 @@ Tests use **mock LLM** and **mock search clients** so they run offline with no O
 
 ---
 
+## Evaluation
+
+Briefsmith includes an evaluation harness for running repeated executions against the same `BriefInput` and producing aggregate statistics (approval rate, revisions, citation counts, and common validation issues).
+
+Run an evaluation:
+
+```bash
+briefsmith eval --input inputs/sample.json --runs 5
+```
+
+Offline mode (cache-only research; fails fast on cache miss):
+
+```bash
+briefsmith eval --input inputs/sample.json --runs 5 --offline
+```
+
+View a report:
+
+```bash
+briefsmith eval-view --eval-id <eval_id>
+```
+
+Reports are stored under `evals/<eval_id>/` as `eval_report.json` and `eval_report.md`.
+
+---
+
 ## Design Decisions
 
 - **Local LLM (Ollama) instead of cloud APIs**

@@ -1,0 +1,32 @@
+{
+  "summary": {
+    "eval_id": "20260224_071756_7a9301",
+    "created_at": "2026-02-24T07:17:56.606723+00:00",
+    "runs_requested": 1,
+    "runs_completed": 0,
+    "approval_rate": 0.0,
+    "avg_revision_count": 0.0,
+    "citation_stats": {
+      "min": 0,
+      "avg": 0.0,
+      "max": 0
+    },
+    "failures_count": 1,
+    "common_issues": [],
+    "notes": "offline mode enabled"
+  },
+  "results": [
+    {
+      "run_id": "20260224_071724_b3c968",
+      "approval_status": null,
+      "revision_count": null,
+      "citations": null,
+      "brief_counts": null,
+      "hard_issues_count": null,
+      "soft_issues_count": null,
+      "issues": null,
+      "duration_ms": 32293,
+      "error": "Offline mode cache miss for query 'My Product Conduct audience research: identify product managers and team leads in US, their pain points, and current solutions'. Run once without --offline to populate the search cache."
+    }
+  ]
+}
