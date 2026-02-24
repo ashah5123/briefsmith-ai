@@ -1,21 +1,27 @@
 {
   "metadata": {
-    "planner_completed_at": "2026-02-24T04:11:10.827835+00:00",
+    "revision_count": 0,
+    "planner_completed_at": "2026-02-24T05:56:57.408154+00:00",
     "researcher_queries": [
       "My Product market US",
       "My Product target audience Product managers and team leads",
       "My Product positioning competitors",
-      "My Product Step 1: Clarify Objectives - Determine the primary goal of the marketing campaign, aligning with the product's purpose and target audience's needs.",
-      "My Product Step 2: Define Target Audience - Identify the specific demographics, pain points, and behaviors that define the product managers and team leads in the US.",
-      "My Product Step 3: Research Competitors - Analyze existing products and services competing for the same market share, highlighting unique selling propositions and marketing strategies.",
+      "My Product Define project goals and objectives",
+      "My Product Conduct competitor research: products, pricing, marketing strategies",
+      "My Product Gather insights from existing data: customer feedback, sales trends, website analytics",
       "Competitor A vs My Product",
       "Competitor B vs My Product"
     ],
     "researcher_queries_count": 8,
     "researcher_sources_count": 12,
-    "researcher_completed_at": "2026-02-24T04:11:52.035476+00:00",
-    "synthesizer_completed_at": "2026-02-24T04:12:56.766956+00:00"
+    "researcher_completed_at": "2026-02-24T05:57:02.459115+00:00",
+    "synthesizer_completed_at": "2026-02-24T05:57:28.434947+00:00",
+    "writer_timestamp": "2026-02-24T05:58:20.898000+00:00",
+    "writer_model": "ollama",
+    "revision_attempt": 0
   },
   "sources_count": 12,
-  "has_findings": true
+  "has_findings": true,
+  "revision_count": 0,
+  "approval_status": "approved"
 }

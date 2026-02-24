@@ -1,6 +1,6 @@
 """Briefsmith schemas: input, sources, research, brief, output, state, and utilities."""
 
-from briefsmith.schemas.brief import BriefSections
+from briefsmith.schemas.brief import BriefSections, ObjectionResponse
 from briefsmith.schemas.input import BriefInput
 from briefsmith.schemas.output import BriefOutput
 from briefsmith.schemas.research import ResearchFindings
@@ -12,6 +12,7 @@ __all__ = [
     "BriefInput",
     "BriefOutput",
     "BriefSections",
+    "ObjectionResponse",
     "ResearchFindings",
     "SourceBundle",
     "SourceItem",

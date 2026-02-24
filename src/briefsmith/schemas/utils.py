@@ -73,10 +73,11 @@ def to_markdown(output: BriefOutput) -> str:
     for m in output.brief.key_messages:
         lines.append(f"- {m}")
     lines.append("")
-    lines.append("### Objections and responses")
+    lines.append("### Objections & Responses")
     lines.append("")
     for o in output.brief.objections_and_responses:
-        lines.append(f"- {o}")
+        lines.append(f"- **Objection:** {o.objection}")
+        lines.append(f"  - Response: {o.response}")
     lines.append("")
     lines.append("### Launch plan")
     lines.append("")
@@ -107,37 +108,74 @@ def to_markdown(output: BriefOutput) -> str:
     return "\n".join(lines)
 
 
-def validate_completeness(output: BriefOutput) -> list[str]:
-    """Return human-readable issues for an incomplete brief."""
-    issues: list[str] = []
+def validate_completeness(output: BriefOutput) -> list[dict[str, str]]:
+    """Return structured issues with severity for an incomplete brief.
+    
+    Returns list of dicts with keys:
+    - severity: "hard" | "soft"
+    - message: str
+    """
+    issues: list[dict[str, str]] = []
 
+    # Hard fails: missing required fields, sources < 3, market_summary < 80 chars
     pos = output.brief.positioning_statement
     if not pos or not pos.strip():
-        issues.append("Missing positioning_statement")
+        issues.append({"severity": "hard", "message": "Missing positioning_statement"})
 
-    n_msg = len(output.brief.key_messages)
-    if n_msg < 3:
-        issues.append(f"Too few key_messages (need >= 3, got {n_msg})")
+    if len(output.sources) < 3:
+        issues.append({
+            "severity": "hard",
+            "message": f"Too few sources (need >= 3, got {len(output.sources)})"
+        })
 
-    n_launch = len(output.brief.launch_plan)
-    if n_launch < 5:
-        issues.append(f"Too few launch_plan (need >= 5, got {n_launch})")
+    if len(output.findings.market_summary.strip()) < 80:
+        issues.append({
+            "severity": "hard",
+            "message": (
+                "market_summary too short (need >= 80 characters, "
+                f"got {len(output.findings.market_summary.strip())})"
+            )
+        })
 
+    # Soft fails: seo_keywords < 8, content_ideas < 6, objections < 3, launch_plan < 5
     n_kw = len(output.brief.seo_keywords)
     if n_kw < 8:
-        issues.append(f"Too few seo_keywords (need >= 8, got {n_kw})")
+        issues.append({
+            "severity": "soft",
+            "message": f"Too few seo_keywords (need >= 8, got {n_kw})"
+        })
 
     n_ideas = len(output.brief.content_ideas)
     if n_ideas < 6:
-        issues.append(f"Too few content_ideas (need >= 6, got {n_ideas})")
+        issues.append({
+            "severity": "soft",
+            "message": f"Too few content_ideas (need >= 6, got {n_ideas})"
+        })
 
-    if len(output.sources) < 3:
-        issues.append(f"Too few sources (need >= 3, got {len(output.sources)})")
+    n_obj = len(output.brief.objections_and_responses)
+    if n_obj < 3:
+        issues.append({
+            "severity": "soft",
+            "message": f"Too few objections_and_responses (need >= 3, got {n_obj})"
+        })
+    else:
+        for i, o in enumerate(output.brief.objections_and_responses):
+            if not (o.objection and o.objection.strip()):
+                issues.append({
+                    "severity": "hard",
+                    "message": f"objections_and_responses[{i}]: objection is empty"
+                })
+            if not (o.response and o.response.strip()):
+                issues.append({
+                    "severity": "hard",
+                    "message": f"objections_and_responses[{i}]: response is empty"
+                })
 
-    if len(output.findings.market_summary.strip()) < 80:
-        issues.append(
-            "market_summary too short (need >= 80 characters, "
-            f"got {len(output.findings.market_summary.strip())})"
-        )
+    n_launch = len(output.brief.launch_plan)
+    if n_launch < 5:
+        issues.append({
+            "severity": "soft",
+            "message": f"Too few launch_plan (need >= 5, got {n_launch})"
+        })
 
     return issues

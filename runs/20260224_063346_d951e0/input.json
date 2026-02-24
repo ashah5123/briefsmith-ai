@@ -1,0 +1,16 @@
+{
+  "product_name": "My Product",
+  "product_description": "A clear, compelling description of at least 20 chars.",
+  "target_audience": "Product managers and team leads",
+  "competitors": [
+    "Competitor A",
+    "Competitor B"
+  ],
+  "tone": "clear",
+  "region": "US",
+  "channels": [
+    "web",
+    "email"
+  ],
+  "constraints": []
+}

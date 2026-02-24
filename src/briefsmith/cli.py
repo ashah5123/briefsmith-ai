@@ -1,13 +1,24 @@
 """Typer CLI for Briefsmith."""
 
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 import typer
 from pydantic import BaseModel
 
 from briefsmith.llm import OllamaClient, generate_structured, generate_text
-from briefsmith.schemas import BriefInput, ResearchFindings, WorkflowState
+from briefsmith.schemas import (
+    BriefInput,
+    BriefOutput,
+    BriefSections,
+    ResearchFindings,
+    SourceItem,
+    WorkflowState,
+    to_markdown,
+    validate_completeness,
+)
+from briefsmith.runs import RunMetadata, RunStore
 from briefsmith.tools import DuckDuckGoSearchClient, SearchCache
 from briefsmith.workflows import build_graph
 
@@ -71,7 +82,7 @@ def llm_check() -> None:
 
 
 DEFAULT_INPUT_PATH = Path("inputs/sample.json")
-DEFAULT_OUTDIR = Path("outputs")
+DEFAULT_OUTDIR = Path("runs")
 
 
 def _findings_to_markdown(findings: ResearchFindings) -> str:
@@ -153,7 +164,7 @@ def run(
         path_type=Path,
     ),
 ) -> None:
-    """Run the planner -> researcher -> synthesizer workflow and save outputs."""
+    """Run full workflow (planner -> ... -> critic) and save outputs."""
     if not input_path.exists():
         typer.echo(f"Input file not found: {input_path}", err=True)
         raise typer.Exit(1)
@@ -170,6 +181,8 @@ def run(
     search = DuckDuckGoSearchClient(cache=cache)
     graph = build_graph(llm, search)
 
+    store = RunStore(base_dir=outdir)
+
     initial = WorkflowState(
         input=brief_input,
         plan=None,
@@ -178,47 +191,140 @@ def run(
         brief=None,
         approval_status="pending",
         revision_notes=None,
-        metadata={},
+        metadata={"revision_count": 0},
     )
     state_dict = initial.model_dump(mode="json")
 
-    typer.echo("Running workflow (planner -> researcher -> synthesizer)...")
+    typer.echo("Running workflow (planner -> ... -> writer -> critic)...")
     try:
         final = graph.invoke(state_dict)
     except Exception as e:
         typer.echo(f"Workflow failed: {e}", err=True)
         raise typer.Exit(1) from e
 
-    outdir.mkdir(parents=True, exist_ok=True)
+    # Persist artifacts via RunStore
+    run_id = store.create_run(brief_input)
 
     sources = final.get("sources") or []
-    outdir.joinpath("sources.json").write_text(
-        json.dumps(sources, indent=2, ensure_ascii=False), encoding="utf-8"
-    )
-    typer.echo(f"Wrote {outdir / 'sources.json'}")
+    store.save_json(run_id, "sources.json", sources)
 
     findings_data = final.get("findings")
     if findings_data is not None:
-        outdir.joinpath("findings.json").write_text(
-            json.dumps(findings_data, indent=2, ensure_ascii=False),
-            encoding="utf-8",
-        )
-        typer.echo(f"Wrote {outdir / 'findings.json'}")
+        store.save_json(run_id, "findings.json", findings_data)
         findings = ResearchFindings.model_validate(findings_data)
         md = _findings_to_markdown(findings)
-        outdir.joinpath("findings.md").write_text(md, encoding="utf-8")
-        typer.echo(f"Wrote {outdir / 'findings.md'}")
+        store.save_artifact(run_id, "findings.md", md.encode("utf-8"), "text/markdown")
 
-    run_meta = {
-        "metadata": final.get("metadata") or {},
-        "sources_count": len(sources),
-        "has_findings": findings_data is not None,
-    }
-    outdir.joinpath("run_metadata.json").write_text(
-        json.dumps(run_meta, indent=2), encoding="utf-8"
+    brief_data = final.get("brief")
+    if brief_data is not None:
+        store.save_json(run_id, "brief.json", brief_data)
+        brief = BriefSections.model_validate(brief_data)
+        if findings_data is not None and sources:
+            source_list = [SourceItem.model_validate(s) for s in sources]
+            output = BriefOutput(
+                input=brief_input,
+                findings=ResearchFindings.model_validate(findings_data),
+                brief=brief,
+                sources=source_list,
+                metadata=final.get("metadata") or {},
+            )
+            final_md = to_markdown(output)
+            store.save_artifact(
+                run_id, "final_brief.md", final_md.encode("utf-8"), "text/markdown"
+            )
+
+    meta = final.get("metadata") or {}
+    approval_status = final.get("approval_status", "pending")
+    run_metadata = RunMetadata(
+        run_id=run_id,
+        created_at=datetime.now(UTC),
+        approval_status=str(approval_status),
+        revision_count=int(meta.get("revision_count", 0)),
+        ollama_model=str(meta.get("writer_model", "ollama")),
+        search_provider="duckduckgo",
+        durations_ms=meta.get("durations_ms") or {},
+        notes=final.get("revision_notes"),
     )
-    typer.echo(f"Wrote {outdir / 'run_metadata.json'}")
+    store.save_json(run_id, "run_metadata.json", run_metadata)
+
+    typer.echo("")
+    typer.echo("Summary")
+    typer.echo("  run_id:         " + run_id)
+    typer.echo("  approval_status: " + str(approval_status))
+    typer.echo("  revision_count:  " + str(run_metadata.revision_count))
+
+    # Print critic notes even if approved
+    revision_notes = final.get("revision_notes")
+    if revision_notes:
+        typer.echo("")
+        typer.echo("Critic notes:")
+        for line in revision_notes.split("\n"):
+            typer.echo("  " + line)
+    
+    # If revise, show top 5 issues
+    if (
+        approval_status == "revise"
+        and brief_data is not None
+        and findings_data is not None
+    ):
+        try:
+            brief = BriefSections.model_validate(brief_data)
+            source_list = [SourceItem.model_validate(s) for s in sources]
+            output = BriefOutput(
+                input=brief_input,
+                findings=ResearchFindings.model_validate(findings_data),
+                brief=brief,
+                sources=source_list,
+                metadata=final.get("metadata") or {},
+            )
+            issues = validate_completeness(output)
+            if issues:
+                typer.echo("")
+                typer.echo("Top issues:")
+                for issue in issues[:5]:
+                    severity = issue.get("severity", "unknown")
+                    message = issue.get("message", "")
+                    typer.echo(f"  [{severity.upper()}] {message}")
+        except Exception:
+            pass  # Skip if we can't validate
+    
+    run_dir = store.path_for(run_id, "run_metadata.json").parent
+    typer.echo("")
+    typer.echo("  outputs:        " + str(run_dir.absolute()))
+    if approval_status == "revise":
+        typer.echo("  Note: Review run directory for details.")
     typer.echo("Done.")
+
+
+@app.command()
+def runs(
+    base_dir: Path = typer.Option(
+        Path("runs"),
+        "--base-dir",
+        "-b",
+        help="Base directory where runs are stored.",
+        path_type=Path,
+    ),
+    limit: int = typer.Option(
+        10,
+        "--limit",
+        "-l",
+        help="Maximum number of recent runs to list.",
+    ),
+) -> None:
+    """List recent runs from the run registry."""
+    store = RunStore(base_dir=base_dir)
+    items = store.list_runs(limit=limit)
+    if not items:
+        typer.echo("No runs found.")
+        return
+
+    for meta in items:
+        created = meta.created_at.isoformat()
+        typer.echo(
+            f"{meta.run_id}  {created}  status={meta.approval_status} "
+            f"revisions={meta.revision_count}"
+        )
 
 
 if __name__ == "__main__":

@@ -133,3 +133,18 @@ def test_generate_structured_fails_raises_structured_output_error() -> None:
     assert "last_raw_output" in dir(err)
     assert err.last_raw_output
     assert err.validation_error or err.last_extracted_json is None
+
+
+def test_generate_structured_schema_like_then_instance_succeeds() -> None:
+    """Schema-like JSON first, then valid instance; retry and succeed."""
+    schema_like = '{"type": "object", "properties": {"answer": {"type": "string"}}}'
+    client = FakeLLMClient([schema_like, '{"answer": "ok"}'])
+    result = generate_structured(
+        client,
+        system="Test",
+        prompt="Return an instance.",
+        model=_TinyModel,
+        max_retries=2,
+    )
+    assert isinstance(result, _TinyModel)
+    assert result.answer == "ok"

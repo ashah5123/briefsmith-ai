@@ -1,6 +1,5 @@
 """Placeholder tests for Briefsmith."""
 
-import pytest
 
 from briefsmith import __version__
 
